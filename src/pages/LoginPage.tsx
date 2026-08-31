@@ -1,0 +1,234 @@
+"use client"
+
+import { useState } from "react"
+import { Link, useNavigate, Navigate, useSearchParams } from "react-router-dom"
+import { Helmet } from "react-helmet-async"
+import { motion } from "framer-motion"
+import { Mail, Lock, LogIn, ArrowLeft, Loader2 } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { GoogleSignInButton } from "@/components/GoogleSignInButton"
+import { SiteHeader } from "@/components/site-header"
+import { SiteFooter } from "@/components/site-footer"
+import { toast } from "sonner"
+
+export default function LoginPage() {
+  const { signIn, signInWithGoogle, user } = useAuth()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [agreeTerms, setAgreeTerms] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTo = searchParams.get("redirect") || "/"
+
+  // If user is already logged in, redirect them
+  if (user) {
+    return <Navigate to={redirectTo} replace />
+  }
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email || !password) {
+      toast.error("Please enter both email and password.")
+      return
+    }
+
+    setLoading(true)
+    try {
+      const { error } = await signIn(email, password)
+      if (error) {
+        toast.error((error as any)?.message || "Failed to log in.")
+      } else {
+        toast.success("Welcome back!", {
+          description: "Successfully logged in to your account.",
+        })
+        navigate(redirectTo)
+      }
+    } catch (err: any) {
+      toast.error("An unexpected error occurred.")
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true)
+    try {
+      const { error } = await signInWithGoogle()
+      if (error) {
+        if ((error as any)?.message?.includes("popup_closed")) {
+          toast.error("Sign-in cancelled.", {
+            description: "You closed the popup before completing sign-in.",
+          })
+        } else if ((error as any)?.message?.includes("access_denied")) {
+          toast.error("Access denied.", {
+            description: "You denied the permission request.",
+          })
+        } else {
+          toast.error((error as any)?.message || "Google sign-in failed.")
+        }
+      }
+    } catch (err: any) {
+      toast.error("An unexpected error occurred during Google Sign-In.")
+      console.error(err)
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <Helmet>
+        <title>Login | Siddhivinayak Overseas</title>
+        <meta
+          name="description"
+          content="Access your immigration applications and consultations portal. Secure login for Siddhivinayak Overseas."
+        />
+        <meta name="robots" content="noindex, follow" />
+      </Helmet>
+      <SiteHeader />
+      <main className="relative min-h-screen bg-background flex flex-col justify-center py-20 px-4 md:px-6 premium-page">
+        {/* Soft background light wash */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-1/4 -z-10 h-[500px] w-full"
+          style={{
+            background:
+              "radial-gradient(circle, oklch(0.7 0.16 84 / 0.12) 0%, transparent 65%)",
+          }}
+        />
+
+        <div className="mx-auto w-full max-w-md">
+          <Link
+            to="/"
+            className="group mb-8 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            Back to Home
+          </Link>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="rounded-3xl border border-border/60 bg-card/65 p-8 shadow-2xl backdrop-blur-xl"
+          >
+            <div className="text-center mb-8">
+              <h1 className="font-serif text-3xl font-semibold leading-tight text-foreground">
+                Welcome Back
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Sign in to track your visa applications and consultations
+              </p>
+            </div>
+
+            <form onSubmit={handleEmailLogin} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 border-border/70 bg-background/50 focus:border-primary/50"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 border-border/70 bg-background/50 focus:border-primary/50"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-nowrap items-start gap-2.5 pt-1">
+                <Checkbox
+                  id="terms-login"
+                  checked={agreeTerms}
+                  onCheckedChange={(checked) => setAgreeTerms(checked as boolean)}
+                  className="mt-0.5 size-4 shrink-0"
+                />
+                <Label
+                  htmlFor="terms-login"
+                  className="inline cursor-pointer text-xs leading-tight text-muted-foreground sm:text-sm"
+                >
+                  I agree to the <Link to="/terms" className="text-primary hover:underline whitespace-nowrap">Terms & Conditions</Link> and <Link to="/privacy" className="text-primary hover:underline whitespace-nowrap">Privacy Policy</Link>.
+                </Label>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading || googleLoading}
+                className="w-full rounded-full bg-primary hover:bg-primary/95 text-primary-foreground btn-glow mt-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign In
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border/50"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-3 text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+
+            <GoogleSignInButton
+              onClick={handleGoogleLogin}
+              isLoading={googleLoading}
+              disabled={loading}
+            />
+
+            <p className="mt-8 text-center text-sm text-muted-foreground">
+              Don&apos;t have an account?{" "}
+              <Link to="/register" className="font-semibold text-primary hover:underline">
+                Create an account
+              </Link>
+            </p>
+          </motion.div>
+        </div>
+      </main>
+      <SiteFooter />
+    </>
+  )
+}
+

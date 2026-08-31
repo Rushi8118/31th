@@ -1,0 +1,556 @@
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase/client'
+import {
+  ROLES, PERMISSION_GROUPS, PERMISSION_LABELS, ROLE_COLORS,
+  type RoleSlug, type PermissionSlug,
+} from '@/lib/rbac'
+import { useAuth } from '@/hooks/use-auth'
+import { usePermissions } from '@/hooks/usePermissions'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
+import {
+  Check, X, Users, Search, Plus, Save, Edit3, Trash2,
+  Shield, RotateCcw, ChevronDown, ChevronUp, Eye, EyeOff,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+
+type Role = {
+  id: string
+  name: string
+  slug: string
+  description: string
+  is_system: boolean
+}
+
+type Permission = {
+  id: string
+  key: string
+  name: string
+  module: string
+}
+
+export default function RolesPage() {
+  const { profile } = useAuth()
+  const { can } = usePermissions()
+  const [roles, setRoles] = useState<Role[]>([])
+  const [allPermissions, setAllPermissions] = useState<Permission[]>([])
+  const [rolePerms, setRolePerms] = useState<Record<string, string[]>>({})
+  const [userRoles, setUserRoles] = useState<Record<string, string[]>>({})
+  const [loading, setLoading] = useState(true)
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    'Users': true,
+    'Roles & Permissions': true,
+  })
+  const [selectedRole, setSelectedRole] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState<'create' | 'edit' | null>(null)
+  const [formData, setFormData] = useState({ name: '', slug: '', description: '' })
+  const [assignedPerms, setAssignedPerms] = useState<Set<string>>(new Set())
+  const [userSearch, setUserSearch] = useState('')
+  const [users, setUsers] = useState<{ id: string; email: string; full_name: string | null; user_role: string }[]>([])
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [showUserManager, setShowUserManager] = useState(false)
+
+  const loadRoles = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('roles').select('*').order('slug')
+      setRoles(data ?? [])
+    } catch { /* ignore */ }
+  }, [])
+
+  const loadPermissions = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('permissions').select('*').order('key')
+      setAllPermissions(data ?? [])
+    } catch { /* ignore */ }
+  }, [])
+
+  const loadRolePerms = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('role_permissions').select('role_id, permission_id')
+      const map: Record<string, string[]> = {}
+      for (const rp of data ?? []) {
+        if (!map[rp.role_id]) map[rp.role_id] = []
+        map[rp.role_id].push(rp.permission_id)
+      }
+      setRolePerms(map)
+    } catch { /* ignore */ }
+  }, [])
+
+  const loadUserRoles = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('user_roles').select('user_id, role_id')
+      const map: Record<string, string[]> = {}
+      for (const ur of data ?? []) {
+        if (!map[ur.user_id]) map[ur.user_id] = []
+        map[ur.user_id].push(ur.role_id)
+      }
+      setUserRoles(map)
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    Promise.all([loadRoles(), loadPermissions(), loadRolePerms(), loadUserRoles()])
+      .finally(() => setLoading(false))
+  }, [loadRoles, loadPermissions, loadRolePerms, loadUserRoles])
+
+  const searchUsers = async () => {
+    if (!userSearch.trim()) return
+    setUsersLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, email, full_name, user_role')
+        .ilike('email', `%${userSearch}%`)
+        .limit(20)
+      if (error) throw error
+      setUsers(data ?? [])
+    } catch {
+      toast.error('Could not search users')
+    } finally {
+      setUsersLoading(false)
+    }
+  }
+
+  const assignUserRole = async (userId: string, roleId: string, assign: boolean) => {
+    try {
+      if (assign) {
+        const { error } = await supabase.from('user_roles').upsert(
+          { user_id: userId, role_id: roleId },
+          { onConflict: 'user_id,role_id' }
+        )
+        if (error) throw error
+        setUserRoles(prev => ({
+          ...prev,
+          [userId]: [...(prev[userId]?.filter(r => r !== roleId) ?? []), roleId],
+        }))
+        toast.success('Role assigned to user')
+      } else {
+        const { error } = await supabase.from('user_roles')
+          .delete()
+          .eq('user_id', userId)
+          .eq('role_id', roleId)
+        if (error) throw error
+        setUserRoles(prev => ({
+          ...prev,
+          [userId]: (prev[userId] ?? []).filter(r => r !== roleId),
+        }))
+        toast.success('Role removed from user')
+      }
+    } catch {
+      toast.error(assign ? 'Failed to assign role' : 'Failed to remove role')
+    }
+  }
+
+  const startCreate = () => {
+    setEditMode('create')
+    setFormData({ name: '', slug: '', description: '' })
+    setAssignedPerms(new Set())
+  }
+
+  const startEdit = (role: Role) => {
+    setEditMode('edit')
+    setSelectedRole(role.id)
+    setFormData({ name: role.name, slug: role.slug, description: role.description ?? '' })
+    const currentPerms = allPermissions
+      .filter(p => rolePerms[role.id]?.includes(p.id))
+      .map(p => p.key)
+    setAssignedPerms(new Set(currentPerms))
+  }
+
+  const cancelEdit = () => {
+    setEditMode(null)
+    setSelectedRole(null)
+    setFormData({ name: '', slug: '', description: '' })
+    setAssignedPerms(new Set())
+  }
+
+  const togglePermission = (permKey: string) => {
+    setAssignedPerms(prev => {
+      const next = new Set(prev)
+      if (next.has(permKey)) next.delete(permKey)
+      else next.add(permKey)
+      return next
+    })
+  }
+
+  const saveRole = async () => {
+    if (!formData.name || !formData.slug) {
+      toast.error('Name and slug are required')
+      return
+    }
+    setSaving(true)
+    try {
+      if (editMode === 'create') {
+        const { data: newRole, error: roleError } = await supabase
+          .from('roles')
+          .insert({ name: formData.name, slug: formData.slug.toLowerCase().replace(/[^a-z_]/g, ''), description: formData.description })
+          .select()
+          .single()
+        if (roleError) throw roleError
+
+        if (newRole) {
+          const permIds = allPermissions.filter(p => assignedPerms.has(p.key)).map(p => p.id)
+          if (permIds.length > 0) {
+            const { error: rpError } = await supabase.from('role_permissions').insert(
+              permIds.map(pid => ({ role_id: newRole.id, permission_id: pid }))
+            )
+            if (rpError) throw rpError
+          }
+        }
+        toast.success('Role created successfully')
+      } else if (editMode === 'edit' && selectedRole) {
+        const { error: roleError } = await supabase.from('roles')
+          .update({ name: formData.name, description: formData.description })
+          .eq('id', selectedRole)
+        if (roleError) throw roleError
+
+        await supabase.from('role_permissions').delete().eq('role_id', selectedRole)
+        const permIds = allPermissions.filter(p => assignedPerms.has(p.key)).map(p => p.id)
+        if (permIds.length > 0) {
+          const { error: rpError } = await supabase.from('role_permissions').insert(
+            permIds.map(pid => ({ role_id: selectedRole, permission_id: pid }))
+          )
+          if (rpError) throw rpError
+        }
+        toast.success('Role updated successfully')
+      }
+      await Promise.all([loadRoles(), loadRolePerms()])
+      cancelEdit()
+    } catch {
+      toast.error('Failed to save role')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const deleteRole = async (roleId: string) => {
+    if (!confirm('Are you sure you want to delete this role?')) return
+    try {
+      await supabase.from('role_permissions').delete().eq('role_id', roleId)
+      await supabase.from('user_roles').delete().eq('role_id', roleId)
+      const { error } = await supabase.from('roles').delete().eq('id', roleId)
+      if (error) throw error
+      toast.success('Role deleted')
+      await loadRoles()
+    } catch {
+      toast.error('Failed to delete role')
+    }
+  }
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }))
+  }
+
+  const getRoleUsers = (roleId: string) => {
+    return Object.entries(userRoles)
+      .filter(([_, roles]) => roles.includes(roleId))
+      .length
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Shield className="w-6 h-6" /> Roles & Permissions
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">Enterprise RBAC management</p>
+        </div>
+        <div className="flex gap-2">
+          <PermissionGuard permission="roles.read">
+            <Button variant="outline" onClick={() => setShowUserManager(!showUserManager)}>
+              <Users className="w-4 h-4 mr-1" />
+              {showUserManager ? 'Permission Matrix' : 'User Manager'}
+            </Button>
+          </PermissionGuard>
+          <PermissionGuard permission="roles.create">
+            <Button onClick={startCreate}>
+              <Plus className="w-4 h-4 mr-1" /> Create Role
+            </Button>
+          </PermissionGuard>
+        </div>
+      </div>
+
+      {editMode && (
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <h2 className="font-semibold text-foreground">
+            {editMode === 'create' ? 'Create New Role' : 'Edit Role'}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Role Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="e.g. Editor"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Slug</label>
+              <input
+                type="text"
+                value={formData.slug}
+                onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z_]/g, '') }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="e.g. editor"
+                disabled={editMode === 'edit'}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Role description"
+              />
+            </div>
+          </div>
+
+          {/* Permission Assignment */}
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-2">Assign Permissions</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+              {allPermissions.map(perm => (
+                <label
+                  key={perm.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                    assignedPerms.has(perm.key)
+                      ? 'border-primary bg-primary/5 text-foreground'
+                      : 'border-border text-muted-foreground hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={assignedPerms.has(perm.key)}
+                    onChange={() => togglePermission(perm.key)}
+                    className="rounded border-border text-primary focus:ring-primary"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{PERMISSION_LABELS[perm.key] ?? perm.name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{perm.key}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {assignedPerms.size} permission{assignedPerms.size !== 1 ? 's' : ''} selected
+            </p>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={cancelEdit}>Cancel</Button>
+            <Button onClick={saveRole} disabled={saving}>
+              <Save className="w-4 h-4 mr-1" />
+              {saving ? 'Saving...' : editMode === 'create' ? 'Create Role' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Role List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {roles.map(role => {
+          const permCount = rolePerms[role.id]?.length ?? 0
+          const userCount = getRoleUsers(role.id)
+          return (
+            <div key={role.id} className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-semibold text-foreground capitalize">{role.name}</h3>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">{role.slug}</p>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full border ${ROLE_COLORS[role.slug] ?? ''}`}>
+                  {permCount} perms
+                </span>
+              </div>
+              {role.description && (
+                <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{role.description}</p>
+              )}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                <span className="flex items-center gap-1">
+                  <Shield className="w-3 h-3" /> {permCount} permissions
+                </span>
+                <span className="flex items-center gap-1">
+                  <Users className="w-3 h-3" /> {userCount} users
+                </span>
+              </div>
+              <div className="flex gap-1">
+                <PermissionGuard permission="roles.update">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => startEdit(role)}
+                    disabled={role.is_system}
+                    title={role.is_system ? 'System roles cannot be edited' : 'Edit role'}
+                  >
+                    <Edit3 className="w-3 h-3" />
+                  </Button>
+                </PermissionGuard>
+                <PermissionGuard permission="roles.delete">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteRole(role.id)}
+                    disabled={role.is_system}
+                    className="text-red-500 hover:text-red-600"
+                    title={role.is_system ? 'System roles cannot be deleted' : 'Delete role'}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </PermissionGuard>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Permission Matrix or User Manager */}
+      {showUserManager ? (
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Users className="w-4 h-4" /> Assign Roles to Users
+            </h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="Search users by email..."
+                value={userSearch}
+                onChange={e => setUserSearch(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && searchUsers()}
+                className="flex-1 px-4 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <Button onClick={searchUsers} disabled={usersLoading} size="sm">
+                {usersLoading ? 'Searching...' : 'Search'}
+              </Button>
+            </div>
+
+            {users.length > 0 && (
+              <div className="space-y-3">
+                {users.map(u => (
+                  <div key={u.id} className="p-4 bg-muted/30 rounded-xl border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{u.full_name || u.email}</p>
+                        <p className="text-xs text-muted-foreground">{u.email}</p>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${ROLE_COLORS[u.user_role] ?? ''}`}>
+                        {u.user_role}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {roles.map(role => {
+                        const hasRole = userRoles[u.id]?.includes(role.id)
+                        return (
+                          <button
+                            key={role.id}
+                            onClick={() => assignUserRole(u.id, role.id, !hasRole)}
+                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                              hasRole
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-muted-foreground border-border hover:border-primary/50'
+                            }`}
+                          >
+                            {role.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="font-semibold text-foreground">Permission Matrix</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Click groups to expand. System roles are marked with a lock icon.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40 border-b border-border">
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground w-48">Permission</th>
+                  {roles.map(role => (
+                    <th key={role.id} className="text-center px-2 py-3 font-medium">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full border capitalize ${ROLE_COLORS[role.slug] ?? ''}`}>
+                          {role.slug.replace(/_/g, ' ')}
+                        </span>
+                        {role.is_system && <Shield className="w-3 h-3 text-muted-foreground/50" />}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {PERMISSION_GROUPS.map(group => {
+                  const isExpanded = expandedGroups[group.label] ?? false
+                  return (
+                    <>
+                      <tr
+                        key={`group-${group.label}`}
+                        className="bg-muted/20 border-y border-border cursor-pointer hover:bg-muted/40"
+                        onClick={() => toggleGroup(group.label)}
+                      >
+                        <td colSpan={roles.length + 1} className="px-4 py-2">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            {group.label}
+                            <span className="text-[10px] text-muted-foreground/50 font-normal normal-case">
+                              ({group.permissions.length} permissions)
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && group.permissions.map(permKey => {
+                        const perm = allPermissions.find(p => p.key === permKey)
+                        return (
+                          <tr key={permKey} className="border-b border-border/50 hover:bg-muted/20">
+                            <td className="px-4 py-2 text-sm text-foreground">
+                              <div className="flex items-center gap-2">
+                                <span>{PERMISSION_LABELS[permKey] ?? permKey}</span>
+                                <span className="text-[10px] text-muted-foreground font-mono">{permKey}</span>
+                              </div>
+                            </td>
+                            {roles.map(role => {
+                              const has = perm ? rolePerms[role.id]?.includes(perm.id) : false
+                              return (
+                                <td key={role.id} className="text-center px-2 py-2">
+                                  {has
+                                    ? <Check className="w-4 h-4 text-green-600 mx-auto" />
+                                    : <X className="w-4 h-4 text-muted-foreground/30 mx-auto" />
+                                  }
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
+                      })}
+                    </>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

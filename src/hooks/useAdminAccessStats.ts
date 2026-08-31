@@ -1,0 +1,180 @@
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase/client'
+
+export type AccessVisitRow = {
+  id: string
+  user_id: string | null
+  session_id: string | null
+  event_type: string
+  page_path: string | null
+  page_title: string | null
+  referrer: string | null
+  device_type: string | null
+  browser: string | null
+  created_at: string
+  user_email?: string | null
+  user_name?: string | null
+}
+
+export type LoggedInUserRow = {
+  id: string
+  email: string
+  full_name: string | null
+  user_role: string
+  last_login_at: string | null
+  created_at: string
+  status: string | null
+}
+
+export type AdminAccessStats = {
+  visitorsToday: number
+  visitors7d: number
+  uniqueSessionsToday: number
+  uniqueSessions7d: number
+  pageViewsToday: number
+  pageViews7d: number
+  loginsToday: number
+  totalUsers: number
+  loggedInUsers7d: number
+  recentVisits: AccessVisitRow[]
+  recentLogins: LoggedInUserRow[]
+  topPages: { path: string; views: number }[]
+}
+
+function startOfDayIso(daysAgo = 0): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - daysAgo)
+  return d.toISOString()
+}
+
+function isPublicPath(path: string | null): boolean {
+  if (!path) return false
+  return !path.startsWith('/admin') && !path.startsWith('/dashboard')
+}
+
+export function useAdminAccessStats() {
+  return useQuery({
+    queryKey: ['admin-access-stats'],
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<AdminAccessStats> => {
+      const todayIso = startOfDayIso(0)
+      const weekIso = startOfDayIso(6)
+
+      const [todayViewsRes, weekViewsRes, usersRes, recentLoginsRes, recentEventsRes] =
+        await Promise.all([
+          supabase
+            .from('interactions')
+            .select('id,session_id,page_path,event_type,created_at')
+            .eq('event_type', 'page_view')
+            .gte('created_at', todayIso)
+            .limit(5000),
+          supabase
+            .from('interactions')
+            .select('id,session_id,page_path,event_type,created_at')
+            .eq('event_type', 'page_view')
+            .gte('created_at', weekIso)
+            .limit(10000),
+          supabase
+            .from('user_profiles')
+            .select('id,email,full_name,user_role,last_login_at,created_at,status', {
+              count: 'exact',
+            })
+            .order('created_at', { ascending: false })
+            .limit(50),
+          supabase
+            .from('user_profiles')
+            .select('id,email,full_name,user_role,last_login_at,created_at,status')
+            .not('last_login_at', 'is', null)
+            .gte('last_login_at', weekIso)
+            .order('last_login_at', { ascending: false })
+            .limit(20),
+          supabase
+            .from('interactions')
+            .select(
+              'id,user_id,session_id,event_type,page_path,page_title,referrer,device_type,browser,created_at',
+            )
+            .in('event_type', ['page_view', 'login', 'signup'])
+            .order('created_at', { ascending: false })
+            .limit(40),
+        ])
+
+      if (todayViewsRes.error) throw todayViewsRes.error
+      if (weekViewsRes.error) throw weekViewsRes.error
+
+      const todayPublic = (todayViewsRes.data || []).filter((r) => isPublicPath(r.page_path))
+      const weekPublic = (weekViewsRes.data || []).filter((r) => isPublicPath(r.page_path))
+
+      const uniqueSessionsToday = new Set(
+        todayPublic.map((r) => r.session_id).filter(Boolean),
+      ).size
+      const uniqueSessions7d = new Set(weekPublic.map((r) => r.session_id).filter(Boolean)).size
+
+      const pageCount = new Map<string, number>()
+      for (const row of weekPublic) {
+        const path = row.page_path || '/'
+        pageCount.set(path, (pageCount.get(path) || 0) + 1)
+      }
+      const topPages = [...pageCount.entries()]
+        .map(([path, views]) => ({ path, views }))
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 8)
+
+      const loginEventsToday = (recentEventsRes.data || []).filter(
+        (r) => r.event_type === 'login' && r.created_at >= todayIso,
+      ).length
+
+      const userIds = [
+        ...new Set(
+          (recentEventsRes.data || [])
+            .map((r) => r.user_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ]
+
+      let profileMap = new Map<string, { email: string; full_name: string | null }>()
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('id,email,full_name')
+          .in('id', userIds)
+        profileMap = new Map(
+          (profiles || []).map((p) => [p.id, { email: p.email, full_name: p.full_name }]),
+        )
+      }
+
+      const recentVisits: AccessVisitRow[] = (recentEventsRes.data || []).map((row) => {
+        const profile = row.user_id ? profileMap.get(row.user_id) : undefined
+        return {
+          id: row.id,
+          user_id: row.user_id,
+          session_id: row.session_id,
+          event_type: row.event_type,
+          page_path: row.page_path,
+          page_title: row.page_title,
+          referrer: row.referrer,
+          device_type: row.device_type,
+          browser: row.browser,
+          created_at: row.created_at,
+          user_email: profile?.email ?? null,
+          user_name: profile?.full_name ?? null,
+        }
+      })
+
+      return {
+        visitorsToday: uniqueSessionsToday,
+        visitors7d: uniqueSessions7d,
+        uniqueSessionsToday,
+        uniqueSessions7d,
+        pageViewsToday: todayPublic.length,
+        pageViews7d: weekPublic.length,
+        loginsToday: loginEventsToday,
+        totalUsers: usersRes.count || 0,
+        loggedInUsers7d: (recentLoginsRes.data || []).length,
+        recentVisits,
+        recentLogins: (recentLoginsRes.data || []) as LoggedInUserRow[],
+        topPages,
+      }
+    },
+  })
+}

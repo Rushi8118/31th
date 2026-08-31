@@ -1,0 +1,66 @@
+﻿src/hooks/useFileManager.ts(50,5): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataOptions<FileItem[], Error, FileItem[], readonly unknown[]>, queryClient?: QueryClient | undefined): DefinedUseQueryResult<...>', gave the following error.
+    Type '() => Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'QueryFunction<FileItem[], readonly unknown[]>'.
+      Type 'Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'FileItem[] | Promise<FileItem[]>'.
+        Type 'Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'Promise<FileItem[]>'.
+          Type '{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]' is not assignable to type 'FileItem[]'.
+            Type '{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }' is not assignable to type 'FileItem'.
+              Types of property 'id' are incompatible.
+                Type 'string | null' is not assignable to type 'string | undefined'.
+                  Type 'null' is not assignable to type 'string | undefined'.
+  Overload 2 of 3, '(options: UndefinedInitialDataOptions<FileItem[], Error, FileItem[], readonly unknown[]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Type '() => Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'unique symbol | QueryFunction<FileItem[], readonly unknown[], never> | undefined'.
+      Type '() => Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'QueryFunction<FileItem[], readonly unknown[], never>'.
+        Type 'Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'FileItem[] | Promise<FileItem[]>'.
+          Type 'Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'Promise<FileItem[]>'.
+            Type '{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]' is not assignable to type 'FileItem[]'.
+              Type '{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }' is not assignable to type 'FileItem'.
+                Types of property 'id' are incompatible.
+                  Type 'string | null' is not assignable to type 'string | undefined'.
+                    Type 'null' is not assignable to type 'string | undefined'.
+  Overload 3 of 3, '(options: UseQueryOptions<FileItem[], Error, FileItem[], readonly unknown[]>, queryClient?: QueryClient | undefined): UseQueryResult<NoInfer<FileItem[]>, Error>', gave the following error.
+    Type '() => Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'unique symbol | QueryFunction<FileItem[], readonly unknown[], never> | undefined'.
+      Type '() => Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'QueryFunction<FileItem[], readonly unknown[], never>'.
+        Type 'Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'FileItem[] | Promise<FileItem[]>'.
+          Type 'Promise<{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]>' is not assignable to type 'Promise<FileItem[]>'.
+            Type '{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }[]' is not assignable to type 'FileItem[]'.
+              Type '{ name: string; id: string | null; fullPath: string; folder: string; size: number; mimeType: string; createdAt: string; updatedAt: string; publicUrl: string; isFolder: boolean; }' is not assignable to type 'FileItem'.
+                Types of property 'id' are incompatible.
+                  Type 'string | null' is not assignable to type 'string | undefined'.
+                    Type 'null' is not assignable to type 'string | undefined'.
+src/hooks/useFileManager.ts(72,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/hooks/useSupabaseCountries.ts(13,3): error TS2740: Type '{ id: string; slug: string; name: string; flag_emoji: string; capital: string; description: string; region: string; is_active: true; sort_order: number; visa_stats: any; created_at: string; updated_at: string; meta_title: string; meta_desc: string; language: string; }' is missing the following properties from type '{ id: string; code: string; name: string; slug: string; capital: string | null; region: string | null; subregion: string | null; latitude: number | null; longitude: number | null; currency: string | null; ... 16 more ...; updated_at: string; }': code, subregion, latitude, longitude, and 8 more.
+src/hooks/useSupabaseCountries.ts(14,3): error TS2740: Type '{ id: string; slug: string; name: string; flag_emoji: string; capital: string; description: string; region: string; is_active: true; sort_order: number; visa_stats: any; created_at: string; updated_at: string; meta_title: string; meta_desc: string; language: string; }' is missing the following properties from type '{ id: string; code: string; name: string; slug: string; capital: string | null; region: string | null; subregion: string | null; latitude: number | null; longitude: number | null; currency: string | null; ... 16 more ...; updated_at: string; }': code, subregion, latitude, longitude, and 8 more.
+src/hooks/useSupabaseCountries.ts(15,3): error TS2740: Type '{ id: string; slug: string; name: string; flag_emoji: string; capital: string; description: string; region: string; is_active: true; sort_order: number; visa_stats: any; created_at: string; updated_at: string; meta_title: string; meta_desc: string; language: string; }' is missing the following properties from type '{ id: string; code: string; name: string; slug: string; capital: string | null; region: string | null; subregion: string | null; latitude: number | null; longitude: number | null; currency: string | null; ... 16 more ...; updated_at: string; }': code, subregion, latitude, longitude, and 8 more.
+src/lib/admin/auth.ts(2,48): error TS2307: Cannot find module 'next/server' or its corresponding type declarations.
+src/lib/logger.ts(7,35): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/supabase/client.ts(3,25): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/supabase/client.ts(5,15): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/supabase/client.ts(6,15): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/supabase/server.ts(5,56): error TS2307: Cannot find module '@supabase/ssr' or its corresponding type declarations.
+src/lib/supabase/server.ts(6,25): error TS2307: Cannot find module 'next/headers' or its corresponding type declarations.
+src/pages/admin/FileManagerPage.tsx(60,6): error TS2339: Property 'filter' does not exist on type 'never[] | NoInfer<TQueryFnData>'.
+  Property 'filter' does not exist on type 'NoInfer<TQueryFnData>'.
+src/pages/admin/FileManagerPage.tsx(60,13): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(61,13): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(62,13): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(63,12): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(63,15): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(89,27): error TS2339: Property 'filter' does not exist on type 'never[] | NoInfer<TQueryFnData>'.
+  Property 'filter' does not exist on type 'NoInfer<TQueryFnData>'.
+src/pages/admin/FileManagerPage.tsx(89,34): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(89,60): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(89,63): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(99,20): error TS2339: Property 'filter' does not exist on type 'never[] | NoInfer<TQueryFnData>'.
+  Property 'filter' does not exist on type 'NoInfer<TQueryFnData>'.
+src/pages/admin/FileManagerPage.tsx(99,27): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(286,29): error TS7006: Parameter 'file' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(358,34): error TS7006: Parameter 'file' implicitly has an 'any' type.
+src/pages/admin/FileManagerPage.tsx(358,40): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pages/DashboardPage.tsx(214,27): error TS2339: Property 'message' does not exist on type '{}'.
+src/pages/LoginPage.tsx(51,27): error TS2339: Property 'message' does not exist on type '{}'.
+src/pages/LoginPage.tsx(71,27): error TS2339: Property 'message' does not exist on type '{}'.
+src/pages/RegisterPage.tsx(84,27): error TS2339: Property 'message' does not exist on type '{}'.
+src/pages/RegisterPage.tsx(87,30): error TS2339: Property 'session' does not exist on type '{}'.
+src/pages/RegisterPage.tsx(106,27): error TS2339: Property 'message' does not exist on type '{}'.

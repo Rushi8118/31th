@@ -1,0 +1,13 @@
+import { useContext } from "react"
+import { AuthContext } from "@/components/auth-provider"
+import type { UserProfile } from "@/components/auth-provider"
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}
+
+export type { UserProfile }
