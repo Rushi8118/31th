@@ -13,12 +13,17 @@ function workPage(
     relatedExtra?: DestinationContent['related']
   },
 ): DestinationContent {
+  const allLinks = [...(input.relatedExtra ?? []), ...shared(input.path)]
+  // Deduplicate by 'to' field, keeping first occurrence
+  const uniqueLinks = Array.from(
+    new Map(allLinks.map((link) => [link.to, link])).values()
+  )
   return {
     ...input,
     kind: 'work',
     serviceType: 'Work visa consultancy',
     processingTime: input.path.endsWith('/uk') ? 'Approximately 8 weeks' : 'Approximately 5–6 months',
-    related: [...(input.relatedExtra ?? []), ...shared(input.path)],
+    related: uniqueLinks,
   }
 }
 
