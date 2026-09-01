@@ -28,8 +28,20 @@ export default function UrgentRequirementsPage() {
   const [selectedCountry, setSelectedCountry] = useState('all')
 
   const countries = useMemo(() => {
-    const list = Array.from(new Set(requirements.map((r) => r.country))).filter(Boolean)
-    return ['all', ...list]
+    const countryList = Array.from(
+      new Set(requirements.map((r) => r.country))
+    ).filter(Boolean).sort()
+    return ['all', ...countryList]
+  }, [requirements])
+
+  const countriesWithCodes = useMemo(() => {
+    const map = new Map<string, string>()
+    requirements.forEach(r => {
+      if (r.country && r.country_code) {
+        map.set(r.country, r.country_code)
+      }
+    })
+    return map
   }, [requirements])
 
   const filtered = useMemo(() => {
@@ -67,33 +79,41 @@ export default function UrgentRequirementsPage() {
           </p>
 
           {/* Search & Country Filter Controls */}
-          <div className="mt-8 max-w-2xl mx-auto flex flex-col sm:flex-row gap-3 items-center">
-            <div className="relative flex-1 w-full">
+          <div className="mt-8 max-w-4xl mx-auto space-y-4">
+            {/* Search Bar */}
+            <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search by job title, skill, or keyword..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 h-11 rounded-full bg-card border-border/80 text-sm shadow-sm"
+                className="pl-10 h-11 rounded-full bg-card border-border/80 text-sm shadow-sm w-full"
               />
             </div>
+            
+            {/* Country Filter Pills */}
             {countries.length > 2 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0">
-                {countries.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setSelectedCountry(c)}
-                    className={`px-3.5 py-2 rounded-full text-xs font-medium transition whitespace-nowrap ${
-                      selectedCountry === c
-                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
-                        : 'bg-card hover:bg-muted/60 text-muted-foreground border border-border/60'
-                    }`}
-                  >
-                    {c === 'all' ? 'All Countries' : c}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {countries.map((c) => {
+                  const countryCode = countriesWithCodes.get(c)
+                  const flagEmoji = countryCode ? getFlagEmoji(countryCode) : '🌍'
+                  
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setSelectedCountry(c)}
+                      className={`px-4 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                        selectedCountry === c
+                          ? 'bg-primary text-primary-foreground font-semibold shadow-md scale-105'
+                          : 'bg-card hover:bg-muted/60 text-muted-foreground border border-border/60 hover:border-primary/30'
+                      }`}
+                    >
+                      {c === 'all' ? '🌍 All Countries' : `${flagEmoji} ${c}`}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

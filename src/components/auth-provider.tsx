@@ -301,23 +301,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             void markUserLogin(session.user!.id)
           })
         }, 0)
-
-        // Send welcome email via Zoho SMTP Edge Function
-        window.setTimeout(() => {
-          const userMetadata = session.user!.user_metadata || {}
-          const email = session.user!.email
-          const fullName = userMetadata.full_name || userMetadata.name || ""
-
-          if (email) {
-            void supabase.functions.invoke("send-welcome-email", {
-              body: { email, fullName },
-            }).then(({ error }) => {
-              if (error) {
-                console.warn("Welcome email failed:", error.message)
-              }
-            }).catch(() => {})
-          }
-        }, 1500)
       }
     })
 

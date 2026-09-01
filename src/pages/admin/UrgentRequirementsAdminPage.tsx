@@ -93,6 +93,7 @@ export default function UrgentRequirementsAdminPage() {
   const [salary, setSalary] = useState('£24,500 – £28,000 / year + Overtime')
   const [experienceRequired, setExperienceRequired] = useState('1+ Year relevant experience')
   const [durationDays, setDurationDays] = useState(14)
+  const [expiresAt, setExpiresAt] = useState<string>('')
   const [imageUrl, setImageUrl] = useState('')
   const [summary, setSummary] = useState('')
   const [content, setContent] = useState('')
@@ -142,6 +143,7 @@ export default function UrgentRequirementsAdminPage() {
     setSalary('£24,500 – £28,000 / year + Overtime')
     setExperienceRequired('1+ Year relevant experience')
     setDurationDays(14)
+    setExpiresAt('')
     setImageUrl('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80')
     setSummary('')
     setContent('')
@@ -164,6 +166,15 @@ export default function UrgentRequirementsAdminPage() {
     setExperienceRequired(req.experience_required || '')
     const rem = getRemainingDays(req.expires_at)
     setDurationDays(rem && rem > 0 ? rem : 14)
+    
+    // Format expires_at for the date input (YYYY-MM-DD)
+    if (req.expires_at) {
+      const date = new Date(req.expires_at)
+      setExpiresAt(date.toISOString().split('T')[0])
+    } else {
+      setExpiresAt('')
+    }
+    
     setImageUrl(req.image_url || '')
     setSummary(req.summary || '')
     setContent(req.content)
@@ -210,6 +221,18 @@ export default function UrgentRequirementsAdminPage() {
       return
     }
 
+    // Validate expiration date if provided
+    if (expiresAt) {
+      const selectedDate = new Date(expiresAt)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      if (selectedDate < today) {
+        toast.error('Expiration date must be in the future')
+        return
+      }
+    }
+
     const payload: UrgentRequirementInput = {
       id: editingId || undefined,
       title: title.trim(),
@@ -224,7 +247,11 @@ export default function UrgentRequirementsAdminPage() {
       summary,
       content,
       status,
-      duration_days: Number(durationDays) || 14,
+      // If expiresAt is set, use it directly; otherwise calculate from duration_days
+      ...(expiresAt 
+        ? { expires_at: new Date(expiresAt).toISOString() }
+        : { duration_days: Number(durationDays) || 14 }
+      ),
     }
 
     try {
@@ -712,10 +739,36 @@ export default function UrgentRequirementsAdminPage() {
                     min={1}
                     max={180}
                     value={durationDays}
-                    onChange={(e) => setDurationDays(Number(e.target.value))}
+                    onChange={(e) => {
+                      setDurationDays(Number(e.target.value))
+                      // Clear custom date if duration days is changed
+                      if (expiresAt) setExpiresAt('')
+                    }}
                     className="h-9 text-xs"
+                    disabled={!!expiresAt}
                   />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {expiresAt ? 'Disabled (using custom date below)' : 'Auto-calculate expiration'}
+                  </p>
                 </div>
+              </div>
+
+              {/* Custom Expiration Date */}
+              <div className="space-y-1">
+                <Label className="text-xs flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-amber-500" />
+                  Custom Expiration Date (Optional)
+                </Label>
+                <Input
+                  type="date"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="h-9 text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Leave empty to use duration days, or pick a specific deadline date
+                </p>
               </div>
 
               {/* Salary & Experience */}
